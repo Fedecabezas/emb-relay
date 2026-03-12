@@ -11,6 +11,6 @@ bindings = [
 tag = "v1"
 new_classes = ["RelayRoom"]
 
-# Secrets (set via: wrangler secret put SECRET_NAME)
-# AUTH_SERVICE_URL  → https://auth.embrague.xyz
-# RELAY_SECRET      → shared token orchestrators use to authenticate
+[vars]
+AUTH_SERVICE_URL = "https://auth.embrague.xyz"
+

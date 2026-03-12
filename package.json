@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev":    "wrangler dev",
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "types":  "wrangler types"
+    "types": "wrangler types"
   },
   "devDependencies": {
-    "wrangler":              "^3.0.0",
     "@cloudflare/workers-types": "^4.0.0",
-    "typescript":            "^5.3.0"
+    "typescript": "^5.3.0",
+    "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.1"
   }
 }
