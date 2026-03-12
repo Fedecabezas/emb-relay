@@ -47,8 +47,8 @@ export default {
       try {
         const JWKS = createRemoteJWKSet(new URL(`${env.AUTH_SERVICE_URL}/.well-known/jwks.json`));
         const { payload } = await jwtVerify(token, JWKS, {
-          issuer: 'embrague-auth-service',
-          audience: 'embrague-ecosystem'
+          issuer: 'https://auth-service-cp65o3qy7a-ue.a.run.app',
+          audience: 'https://auth-service-cp65o3qy7a-ue.a.run.app'
         });
 
         // Verificamos que sea verdaderamente una máquina
