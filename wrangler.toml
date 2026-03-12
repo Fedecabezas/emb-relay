@@ -1,0 +1,16 @@
+name            = "embrague-relay"
+main            = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[durable_objects]
+bindings = [
+  { name = "RELAY_ROOM", class_name = "RelayRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RelayRoom"]
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# AUTH_SERVICE_URL  → https://auth.embrague.xyz
+# RELAY_SECRET      → shared token orchestrators use to authenticate
