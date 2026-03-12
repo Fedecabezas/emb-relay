@@ -119,14 +119,17 @@ export class RelayRoom {
             connectedAt: Date.now(),
           };
           this.orchestrators.set(conn.id, conn);
-          type: 'orchestrator:joined',
-          node: { id: conn.id, hostname: conn.hostname, meta: conn.meta, connected_at: conn.connectedAt, status: {} },
-        });
-        break;
-      }
 
-      case 'status':
-      case 'log':
+          // Notify all consoles
+          this.broadcastToConsoles({
+            type: 'orchestrator:joined',
+            node: { id: conn.id, hostname: conn.hostname, meta: conn.meta, connected_at: conn.connectedAt, status: {} }
+          });
+          break;
+        }
+
+        case 'status':
+        case 'log':
       case 'telemetry': {
         // Find this orchestrator's id from the open connections map
         const conn = [...this.orchestrators.values()].find(c => c.ws === ws);
@@ -147,11 +150,14 @@ export class RelayRoom {
       const conn = this.orchestrators.get(targetId);
       if (!conn) {
         // Podríamos responder a la consola con un error, pero el pasamanos silencioso es seguro
-    // Forward command as-is to the target orchestrator
-    conn.ws.send(JSON.stringify(msg));
-  }
+        return;
+      }
+      
+      // Forward command as-is to the target orchestrator
+      conn.ws.send(JSON.stringify(msg));
+    }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────────
 
   private broadcastToConsoles(msg: unknown): void {
     const payload = JSON.stringify(msg);
