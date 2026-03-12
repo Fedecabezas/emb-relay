@@ -1,4 +1,4 @@
-name            = "embrague-relay"
+name            = "emb-relay"
 main            = "src/index.ts"
 compatibility_date = "2024-01-01"
 
@@ -9,7 +9,7 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RelayRoom"]
+new_sqlite_classes = ["RelayRoom"]
 
 [vars]
 AUTH_SERVICE_URL = "https://auth.embrague.xyz"
