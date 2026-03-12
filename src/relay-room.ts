@@ -106,22 +106,19 @@ export class RelayRoom {
   // ── Orchestrator → Relay ───────────────────────────────────────────────────
 
   private async handleOrchestrator(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    switch (msg.type) {
-      case 'hello': {
-        const conn: OrchestratorConn = {
-          ws,
-          id:          msg.id as string,
-          hostname:    msg.hostname as string,
-          meta:        msg.meta,
-          connectedAt: Date.now(),
-        };
-        this.orchestrators.set(conn.id, conn);
-
-        // Send the new node a snapshot of current state (future: for re-connects)
-        ws.send(JSON.stringify({ type: 'ack', id: conn.id }));
-
-        // Notify all consoles
-        this.broadcastToConsoles({
+      switch (msg.event ?? msg.type) {
+        // En Rust le pusimos { event: "HEARTBEAT", target: "M7", inventory: [] }
+        case 'HEARTBEAT':
+        case 'hello': {
+          const id = (msg.target ?? msg.id) as string;
+          const conn: OrchestratorConn = {
+            ws,
+            id,
+            hostname:    msg.hostname as string | undefined ?? 'Local-M7',
+            meta:        msg.inventory ?? msg.meta,
+            connectedAt: Date.now(),
+          };
+          this.orchestrators.set(conn.id, conn);
           type: 'orchestrator:joined',
           node: { id: conn.id, hostname: conn.hostname, meta: conn.meta, connected_at: conn.connectedAt, status: {} },
         });
@@ -143,15 +140,13 @@ export class RelayRoom {
   // ── Console → Relay → Orchestrator ────────────────────────────────────────
 
   private async handleConsole(msg: Record<string, unknown>): Promise<void> {
-    const targetId = msg.orchestrator_id as string | undefined;
-    if (!targetId) return;
+      // Ahora la consola manda { target: 'M7', command: 'restart', ... }
+      const targetId = msg.target as string | undefined;
+      if (!targetId) return;
 
-    const conn = this.orchestrators.get(targetId);
-    if (!conn) {
-      // Orchestrator not connected — could notify console here
-      return;
-    }
-
+      const conn = this.orchestrators.get(targetId);
+      if (!conn) {
+        // Podríamos responder a la consola con un error, pero el pasamanos silencioso es seguro
     // Forward command as-is to the target orchestrator
     conn.ws.send(JSON.stringify(msg));
   }
