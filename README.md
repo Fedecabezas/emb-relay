@@ -28,3 +28,20 @@ El Durable Object es nuestra "Zona" inmutable que vive fijo en una parte secreta
 ### Wrangler
 `Wrangler` es sencillamente la herramienta de consola Oficial de Cloudflare (`npx wrangler dev`) que compila localmente en un simulador de Edge súper exacto (V8 nativo simulado). 
 Al hacer `npx wrangler deploy`, Cloudflare minimiza nuestro Typescript a la mínima expresión del Universo en 3 segundos y lo enciende instántaneamente en todo el globo.
+
+## Desarrollo y Despliegue
+
+Para trabajar en el Relay, asegúrate de tener las dependencias instaladas (`npm install`).
+
+### Desarrollo Local
+Para ejecutar el entorno simulado de Cloudflare Workers en tu máquina:
+```bash
+npm run dev
+```
+
+### Despliegue a Producción (Cloudflare)
+Para publicar inmediatamente los últimos cambios en la red global de Cloudflare, simplemente ejecuta:
+```bash
+npm run deploy
+```
+Esto utiliza tu sesión activa de Wrangler/Cloudflare para subir el código y los Durable Objects.

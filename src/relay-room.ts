@@ -58,6 +58,11 @@ export class RelayRoom {
 
     this.state.acceptWebSocket(server, [role]);
 
+    if (role === 'console') {
+      this.consoles.add(server);
+      this.sendInitSnapshot(server);
+    }
+
     return new Response(null, { status: 101, webSocket: client });
   }
 

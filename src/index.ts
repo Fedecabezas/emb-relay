@@ -64,47 +64,56 @@ export default {
     }
 
     // ── Console (browser) WebSocket ──────────────────────────────────────────
-    if (url.pathname === '/ws/console') {
-      // Browser sends its session cookie → we validate against auth.embrague.xyz
-      const sessionData = await validateSession(req, env);
-      if (!sessionData) {
-        return new Response('Unauthorized: Invalid Session', { status: 401 });
-      }
-      return forwardToRoom(req, env, 'console', sessionData.userId);
+  if (url.pathname === '/ws/console') {
+    // Browser might send token in URL params (since cross-domain cookies aren't always sent)
+    const token = url.searchParams.get('token');
+    const sessionData = await validateSession(req, env, token);
+    if (!sessionData) {
+      return new Response('Unauthorized: Invalid Session', { status: 401 });   
     }
+    return forwardToRoom(req, env, 'console', sessionData.userId);
+  }
 
-    return new Response('Not found', { status: 404 });
-  },
+  return new Response('Not found', { status: 404 });
+},
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Route the WebSocket upgrade request to the singleton RelayRoom DO. */
+/** Route the WebSocket upgrade request to the singleton RelayRoom DO. */       
 function forwardToRoom(req: Request, env: Env, role: 'orchestrator' | 'console', clientId: string): Promise<Response> {
   const id   = env.RELAY_ROOM.idFromName('global');
   const stub = env.RELAY_ROOM.get(id);
 
-  // Pass the role and ID as headers so the DO knows exactly who connected
+  // Pass the role and ID as headers so the DO knows exactly who connected      
   const forwarded = new Request(req.url, {
-    headers: { 
-      ...Object.fromEntries(req.headers), 
-      'x-client-role': role,
-      'x-client-id': clientId 
-    },
-    body: req.body,
-    method: req.method,
+  headers: {
+    ...Object.fromEntries(req.headers),
+    'x-client-role': role,
+    'x-client-id': clientId
+  },
+  body: req.body,
+  method: req.method,
   });
 
   return stub.fetch(forwarded);
 }
 
-/** Validate the browser session cookie against auth.embrague.xyz/auth/me */
-async function validateSession(req: Request, env: Env): Promise<{userId: string} | null> {
+/** Validate the browser session cookie or Bearer token against auth.embrague.xyz/auth/me */    
+async function validateSession(req: Request, env: Env, urlToken: string | null): Promise<{userId: string} | null> {
   try {
-    const res = await fetch(`${env.AUTH_SERVICE_URL}/auth/me`, {
-      headers: { cookie: req.headers.get('cookie') ?? '' }
-    });
+    let cookieHeader = req.headers.get('cookie') ?? '';
     
+    // Auth backend /me expects strict cookies. We magically inject it if provided by url.
+    if (urlToken && !cookieHeader.includes('access_token=')) {
+      cookieHeader += (cookieHeader ? '; ' : '') + `access_token=${urlToken}`;
+    }
+
+    const headers: Record<string, string> = {
+      cookie: cookieHeader
+    };
+
+    const res = await fetch(`${env.AUTH_SERVICE_URL}/auth/me`, { headers });
     if (res.ok) {
       const data = await res.json() as any;
       return { userId: data.user.id };
