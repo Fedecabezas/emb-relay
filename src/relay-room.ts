@@ -33,12 +33,19 @@
 
 export interface Env {}
 
+interface LastTelemetry {
+  cpu_pct:  number;
+  ram_mb:   number;
+  services: Record<string, { cpu: number; ram_mb: number }>;
+}
+
 interface OrchestratorConn {
   ws:       WebSocket;
   id:       string;
   hostname: string;
   meta:     unknown;         // OrchestratorMeta — passed through as-is
-  connectedAt: number;
+  connectedAt:    number;
+  lastTelemetry?: LastTelemetry;  // cached to populate init snapshots accurately
 }
 
 export class RelayRoom {
@@ -140,13 +147,21 @@ export class RelayRoom {
 
         case 'status':
         case 'log':
-      case 'telemetry': {
-        // Find this orchestrator's id from the open connections map
-        const conn = [...this.orchestrators.values()].find(c => c.ws === ws);
-        if (!conn) return;
-        this.broadcastToConsoles({ ...msg, orchestrator_id: conn.id });
-        break;
-      }
+        case 'telemetry': {
+          // Find this orchestrator's id from the open connections map
+          const conn = [...this.orchestrators.values()].find(c => c.ws === ws);
+          if (!conn) return;
+          // Cache the latest telemetry so new console connections receive real state immediately
+          if ((msg.event ?? msg.type) === 'telemetry') {
+            conn.lastTelemetry = {
+              cpu_pct:  msg.cpu_pct as number,
+              ram_mb:   msg.ram_mb as number,
+              services: (msg.services ?? {}) as Record<string, { cpu: number; ram_mb: number }>,
+            };
+          }
+          this.broadcastToConsoles({ ...msg, orchestrator_id: conn.id });
+          break;
+        }
     }
   }
 
@@ -180,15 +195,28 @@ export class RelayRoom {
     }
   }
 
-  // Send full snapshot to a newly connected console
+  // Send full snapshot to a newly connected console.
+  // If a lastTelemetry is cached for an orchestrator, derive the running services from it
+  // so the console immediately shows real state instead of an empty status map.
   private sendInitSnapshot(ws: WebSocket): void {
-    const orchestrators = [...this.orchestrators.values()].map(c => ({
-      id:           c.id,
-      hostname:     c.hostname,
-      meta:         c.meta,
-      connected_at: c.connectedAt,
-      status:       {},
-    }));
+    const orchestrators = [...this.orchestrators.values()].map(c => {
+      const status: Record<string, { running: boolean; cpu_pct?: number; ram_mb?: number }> = {};
+      if (c.lastTelemetry?.services) {
+        for (const [svc, stats] of Object.entries(c.lastTelemetry.services)) {
+          status[svc] = { running: true, cpu_pct: stats.cpu, ram_mb: stats.ram_mb };
+        }
+      }
+      return {
+        id:           c.id,
+        hostname:     c.hostname,
+        meta:         c.meta,
+        connected_at: c.connectedAt,
+        status,
+        telemetry: c.lastTelemetry
+          ? { cpu_pct: c.lastTelemetry.cpu_pct, ram_mb: c.lastTelemetry.ram_mb }
+          : undefined,
+      };
+    });
     ws.send(JSON.stringify({ type: 'init', orchestrators }));
   }
 }
