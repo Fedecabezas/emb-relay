@@ -74,8 +74,13 @@ export class RelayRoom {
 
     let msg: Record<string, unknown>;
     try {
-      msg = JSON.parse(typeof raw === 'string' ? raw : new TextDecoder().decode(raw));
-    } catch {
+      const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+      msg = JSON.parse(text);
+      if (msg.event !== 'HEARTBEAT' && msg.type !== 'telemetry') {
+        console.log(`[DO] Received message from ${role}:`, text);
+      }
+    } catch (e) {
+      console.error('[DO] Failed to parse message', e);
       return;
     }
 

@@ -1,47 +1,37 @@
-# Embrague Relay (Edge WebSocket Hub)
+# emb-relay
 
-Este es el componente central de control de la arquitectura distribuida de Embrague Labs. 
-A nivel de sistema, funciona como un Switchboard Inmortal.
+## Overview
+`emb-relay` is an edge-native WebSocket broker operating in a serverless environment via Cloudflare Workers. It functions as an immortal stateless-to-stateful router relaying bidirectional telemetrics, logging streams, and execution procedures strictly between isolated control nodes (`emb-orchestrator`) and web-based observer interfaces (`emb-console`). 
 
- 
+## Technical Architecture
 
-## The Relay Pattern
- 
-**El Orquestrador** al arrancar entra como cliente mudo por `wss://relay.embrague.xyz/connect` con su token de máquina.
-**Tu Consola** al entrar al dashboard se conecta por `wss://relay.embrague.xyz/ws/console` validado por sesión humana.
+- **`index.ts` (Edge Upgrade Router)**: Stateless ingress handler. Validates HTTP protocols, handles liveliness endpoints (`/health`), and performs strict zero-trust credential evaluation before promoting the connection stack to the WS protocol. 
+  - `(/ws/orchestrator)`: Expects a `Bearer` authorization scheme. Uses `jose` to dynamically compile remote JWKS configurations, decoding the JWT to verify matching Audience values, and establishing the sub-account structure strictly requires a `'machine'` type definition.
+  - `(/ws/console)`: Parses URL queries or native session cookies to evaluate standard human sessions dynamically acting through a back-proxy fetch confirmation against `auth.embrague.xyz/auth/me`. 
 
----
+- **`relay-room.ts` (Durable Object Memory Core)**: Stateful object physically mapped to a guaranteed geographical V8 RAM sector. Replaces standard database reliance for active socket persistence. It maintains internal reference matrices `Map<string, OrchestratorConn>` and `Set<WebSocket>` representing machine endpoints vs monitoring browser endpoints concurrently.
 
-##  Tecnologías (Cloudflare Workers & V8)
+## Wire Routing Mechanics (JSON Protocol)
 
-### 
-Mantener miles de zócalos WebSocket (Conexiones TCP) inactivos por días es ineficientemente caro en infraestructura tradicional (Node en contenedores se ahoga en memoria de I/O para sockets durmientes).  
+The Durable Object logic explicitly divides event handling into a transparent dual stream system with custom namespace tagging `x-client-role` attached at the Edge Upgrade router level.
 
-**Cloudflare Workers** no manejan un SO Linux subyacente. Corren un engine ultraligero de V8 en las propias antenas Edge que cachean páginas web (Isolates).
-Y para el caso de los sockets mutables, usan **Durable Objects**.
+### Upstream (Orchestrator to Console Broadcasts)
+The Relay broadcasts all events unconditionally to all entries living in the `Set<WebSocket>` belonging to Web Consoles.
+- **Node Join**: Translates initial `HEARTBEAT`/`hello` structs directly mapping the initial payload array capabilities into a console broadcast mapped as `orchestrator:joined` while registering standard connected counters.
+- **Node Left**: Synthesizes custom socket drop messages (`orchestrator:left`) by catching the native `webSocketClose()` or `webSocketError()` signals inside the worker engine.
+- **Telemetry Loop**: Blindly passes through interval based metrics containing structural dictionaries.
+- **Process Status & Logs**: Sub-string messages routed to updating internal console ring buffers per service ID.
 
-### Durable Objects  
-El "Worker" normal (el router de la puerta de entrada) no tiene estado, muere apenas recibe un paquete.
-Pero cuando llega una conexión WebSocket, el Worker se la pasa a un **Durable Object**. 
-El Durable Object es nuestra "Zona" inmutable que vive fijo en una parte secreta de la memoria RAM global de Cloudflare. Allí es donde nuestro código enciende y mantiene la memoria real sobre las máquinas: *"Sé que el socket con ID z7X es de M7"*. 
+### Downstream (Console to Orchestrator Mutations)
+The Relay processes explicit executions targeted to endpoints implicitly without mutation algorithms aside from identifying the core node variable.
+- The standard payload must contain a `target` attribute.
+- The Worker queries its memory Map `this.orchestrators.get(targetId)` and flushes the entire message vector directly onto individual network threads natively attached to matching hardware devices.
 
-### Wrangler
-`Wrangler` es sencillamente la herramienta de consola Oficial de Cloudflare (`npx wrangler dev`) que compila localmente en un simulador de Edge súper exacto (V8 nativo simulado). 
-Al hacer `npx wrangler deploy`, Cloudflare minimiza nuestro Typescript a la mínima expresión del Universo en 3 segundos y lo enciende instántaneamente en todo el globo.
+## Build and Developer Deployment
 
-## Desarrollo y Despliegue
+This module utilizes the official Cloudflare tooling suite.
 
-Para trabajar en el Relay, asegúrate de tener las dependencias instaladas (`npm install`).
-
-### Desarrollo Local
-Para ejecutar el entorno simulado de Cloudflare Workers en tu máquina:
-```bash
-npm run dev
-```
-
-### Despliegue a Producción (Cloudflare)
-Para publicar inmediatamente los últimos cambios en la red global de Cloudflare, simplemente ejecuta:
-```bash
-npm run deploy
-```
-Esto utiliza tu sesión activa de Wrangler/Cloudflare para subir el código y los Durable Objects.
+- **Engine**: V8 Isolates.
+- **Compilation target**: ES-module structure via `wrangler.toml`.
+- **Initialization**: `npm run dev` mapping miniflare instances simulating the edge node environments in an offline manner.
+- **Observability in Production**: Replaces standard terminal output via `npm run logs`, actively subscribing through network traces to the production instance to observe live V8 environment `console.log` evaluations natively.
